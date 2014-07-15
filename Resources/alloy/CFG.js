@@ -1,0 +1,1 @@
+module.exports={"dependencies":{},"currentEnvironment":"test","serviceURL":""};

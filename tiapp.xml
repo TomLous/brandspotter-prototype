@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ti:app xmlns:ti="http://ti.appcelerator.org">
     <id>com.datlinq.brandspotter2</id>
-    <name>brandspotter-prototype</name>
-    <version>1.0</version>
-    <publisher>tomlous</publisher>
+    <name>Brandspotter2</name>
+    <version>0.1</version>
+    <publisher>Tom Lous</publisher>
     <url>http://datlinq.com</url>
     <description>not specified</description>
     <copyright>2014 by tomlous</copyright>
@@ -47,7 +47,10 @@
         </splash>
         <theme>default</theme>
     </mobileweb>
-    <modules/>
+    <modules>
+        <module platform="iphone">ti.map</module>
+        <module platform="android">ti.map</module>
+    </modules>
     <deployment-targets>
         <target device="android">true</target>
         <target device="blackberry">false</target>

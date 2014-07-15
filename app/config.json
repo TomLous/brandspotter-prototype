@@ -1,8 +1,17 @@
 {
-	"global": {}, 
-	"env:development": {}, 
-	"env:test": {}, 
-	"env:production": {}, 
+	"global": {},
+	"env:development": {
+		"currentEnvironment": "development",
+		"serviceURL": ""
+	},
+	"env:test": {
+		"currentEnvironment": "test",
+		"serviceURL": ""
+	},
+	"env:production": {
+		"currentEnvironment": "production",
+		"serviceURL": ""
+	},
 	"os:android": {},
 	"os:blackberry": {},
 	"os:ios": {},
