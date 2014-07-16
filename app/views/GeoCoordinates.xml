@@ -15,6 +15,15 @@
 			
 			<Label class="labels orientation">Orientation: </Label>
 			<Label  id="orientation" class="values orientation"></Label>
+
+			<Label class="labels x">X: </Label>
+			<Label  id="x" class="values x"></Label>
+			
+			<Label class="labels y">Y: </Label>
+			<Label  id="y" class="values y"></Label>
+			
+			<Label class="labels z">Z: </Label>
+			<Label  id="z" class="values z"></Label>
 			
 		</View>
 	</View>

@@ -1,69 +1,15 @@
 function Controller() {
-    function updateDisplay() {
-        if (!busyFlag) {
-            busyFlag = true;
-            managePOIViews();
-            busyFlag = false;
-        }
-    }
-    function managePOIViews() {
-        for (locationId in locations) if (!poiViews[locationId] && locationInfo.coords) {
-            locationObj = locations[locationId];
-            var distance = calculateDistance(locationInfo.coords, locationObj.geoLocation);
-            poiMaxDistance > distance && Ti.API.info(locationObj.name + " " + distance);
-        }
-    }
-    function loadPOIs() {
-        var now = Math.round(new Date().getTime() / 1e3);
-        if (now - lastTime > minInterval) {
-            lastTime = now;
-            var postURL = "http://datatools01.appspot.com/v1/DataInterface/GoogleMaps/GoogleMapsPlaces/nearbySearch";
-            var xhr = Titanium.Network.createHTTPClient();
-            var data = {
-                latitude: locationInfo.coords.latitude,
-                longitude: locationInfo.coords.longitude,
-                types: "establishment"
-            };
-            xhr.onload = function() {
-                Titanium.API.info("Status: " + this.status);
-                var jsonObject = JSON.parse(this.responseText);
-                locations = jsonObject.data;
-            };
-            xhr.onerror = function(e) {
-                Titanium.API.error("error: " + e.error);
-            };
-            xhr.open("POST", postURL);
-            xhr.send(data);
-        }
-    }
-    function toRadians(deg) {
-        return deg * Math.PI / 180;
-    }
-    function calculateDistance(point1, point2) {
-        var R = 6371;
-        var φ1 = toRadians(point1.latitude);
-        var φ2 = toRadians(point2.latitude);
-        toRadians(point1.longitude);
-        toRadians(point2.longitude);
-        var Δφ = toRadians(point2.latitude - point1.latitude);
-        var Δλ = toRadians(point2.longitude - point1.longitude);
-        var a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        var d = 1e3 * R * c;
-        return d;
-    }
     function updateLocation() {
         Titanium.Geolocation.getCurrentPosition(function(e) {
-            locationInfo.coords = e.coords;
+            Ti.API.info(e.coords);
             $.lat.text = e.coords.latitude;
             $.long.text = e.coords.longitude;
             $.speed.text = e.coords.speed;
-            loadPOIs();
         });
     }
     function updateOrientation(orientation) {
         orientation = orientation || Titanium.Gesture.getOrientation();
-        locationInfo.orientation = orientation;
+        Ti.API.info(orientation);
         var text = "?  [" + orientation + "]";
         switch (orientation) {
           case Titanium.UI.PORTRAIT:
@@ -93,15 +39,9 @@ function Controller() {
     }
     function updateHeading() {
         Ti.Geolocation.getCurrentHeading(function(e) {
-            locationInfo.heading = e.heading;
+            Ti.API.info(e.heading);
             $.heading.text = e.heading.trueHeading;
         });
-    }
-    function updateAccelerometer(e) {
-        locationInfo.accelerometer = e;
-        $.x.text = e.x;
-        $.y.text = e.y;
-        $.z.text = e.z;
     }
     require("alloy/controllers/BaseController").apply(this, Array.prototype.slice.call(arguments));
     this.__controllerPath = "GeoCoordinates";
@@ -117,7 +57,7 @@ function Controller() {
     $.__views.coordinates = Ti.UI.createView({
         bottom: "10dp",
         width: "90%",
-        height: "165dp",
+        height: "150dp",
         backgroundColor: "#CCCCCC",
         borderColor: "#FFFFFF",
         borderWidth: "1dp",
@@ -249,115 +189,21 @@ function Controller() {
         id: "orientation"
     });
     $.__views.coordinates.add($.__views.orientation);
-    $.__views.__alloyId5 = Ti.UI.createLabel({
-        width: "70dp",
-        left: "10dp",
-        height: "15dp",
-        color: "#000000",
-        font: {
-            fontSize: "11dp"
-        },
-        top: "105dp",
-        text: "X:",
-        id: "__alloyId5"
-    });
-    $.__views.coordinates.add($.__views.__alloyId5);
-    $.__views.x = Ti.UI.createLabel({
-        width: "80%",
-        left: "90dp",
-        color: "#000000",
-        height: "15dp",
-        font: {
-            fontSize: "11dp"
-        },
-        top: "105dp",
-        id: "x"
-    });
-    $.__views.coordinates.add($.__views.x);
-    $.__views.__alloyId6 = Ti.UI.createLabel({
-        width: "70dp",
-        left: "10dp",
-        height: "15dp",
-        color: "#000000",
-        font: {
-            fontSize: "11dp"
-        },
-        top: "125dp",
-        text: "Y:",
-        id: "__alloyId6"
-    });
-    $.__views.coordinates.add($.__views.__alloyId6);
-    $.__views.y = Ti.UI.createLabel({
-        width: "80%",
-        left: "90dp",
-        color: "#000000",
-        height: "15dp",
-        font: {
-            fontSize: "11dp"
-        },
-        top: "125dp",
-        id: "y"
-    });
-    $.__views.coordinates.add($.__views.y);
-    $.__views.__alloyId7 = Ti.UI.createLabel({
-        width: "70dp",
-        left: "10dp",
-        height: "15dp",
-        color: "#000000",
-        font: {
-            fontSize: "11dp"
-        },
-        top: "145dp",
-        text: "Z:",
-        id: "__alloyId7"
-    });
-    $.__views.coordinates.add($.__views.__alloyId7);
-    $.__views.z = Ti.UI.createLabel({
-        width: "80%",
-        left: "90dp",
-        color: "#000000",
-        height: "15dp",
-        font: {
-            fontSize: "11dp"
-        },
-        top: "145dp",
-        id: "z"
-    });
-    $.__views.coordinates.add($.__views.z);
     exports.destroy = function() {};
     _.extend($, $.__views);
     arguments[0] || {};
-    Titanium.Geolocation.distanceFilter = 10;
-    Titanium.Geolocation.headingFilter = .2;
-    var minInterval = 60;
-    var lastTime = -1;
-    var busyFlag = false;
-    var locationInfo = {
-        coords: {},
-        heading: {},
-        orientation: 0,
-        accelerometer: {}
-    };
-    var poiMaxDistance = 500;
-    var updateInterval = 1e3;
-    var locations = {};
-    var poiViews = {};
     Titanium.Geolocation.addEventListener("location", function() {
         updateLocation();
     });
     Titanium.Geolocation.addEventListener("heading", function() {
         updateHeading();
     });
-    Titanium.Gesture.addEventListener("orientationchange", function(e) {
+    Ti.Gesture.addEventListener("orientationchange", function(e) {
         updateOrientation(e.orientation);
-    });
-    Titanium.Accelerometer.addEventListener("update", function(e) {
-        updateAccelerometer(e);
     });
     updateLocation();
     updateHeading();
     updateOrientation();
-    setInterval(updateDisplay, updateInterval);
     _.extend($, exports);
 }
 

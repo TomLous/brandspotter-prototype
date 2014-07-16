@@ -2,7 +2,7 @@
 "#coordinates" : {
 	bottom: "10dp",
 	width: "90%",
-	height: "150dp",
+	height: "165dp",
 	backgroundColor: "#CCCCCC",
 	borderColor: "#FFFFFF",
 	borderWidth: "1dp"	
@@ -39,5 +39,14 @@
 }
 ".orientation":{
 	top:"85dp"	
+}
+".x":{
+	top:"105dp"	
+}
+".y":{
+	top:"125dp"	
+}
+".z":{
+	top:"145dp"	
 }
 

@@ -6,3 +6,4 @@ Alloy.Globals.Map = require('ti.map');
 Titanium.Geolocation.purpose = "Recieve User Location";
 Titanium.Geolocation.accuracy = Titanium.Geolocation.ACCURACY_BEST;
 
+
