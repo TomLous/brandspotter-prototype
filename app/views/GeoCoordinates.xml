@@ -1,0 +1,21 @@
+<Alloy>
+	<View class="container">
+		<View id="coordinates">
+			<Label class="labels lat">Lat: </Label>
+			<Label id="lat" class="values lat"></Label>
+			
+			<Label class="labels long">Long: </Label>
+			<Label id="long" class="values long"></Label>
+			
+			<Label class="labels heading">Heading: </Label>
+			<Label  id="heading" class="values heading"></Label>
+			
+			<Label class="labels speed">Speed: </Label>
+			<Label  id="speed" class="values speed"></Label>
+			
+			<Label class="labels orientation">Orientation: </Label>
+			<Label  id="orientation" class="values orientation"></Label>
+			
+		</View>
+	</View>
+</Alloy>
