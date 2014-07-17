@@ -1,5 +1,7 @@
 var args = arguments[0] || {};
 
+var geoMath = require('geoMath');
+
 Titanium.Geolocation.distanceFilter = 10;
 Titanium.Geolocation.headingFilter = 0.2;
 
@@ -18,10 +20,11 @@ var locationInfo = {
 	accelerometer: {}
 };
 
-var poiMaxDistance = 500; // meters
+var maxPOIDistance = 500; // meters
 var updateInterval = 1000;
+var maxPOIAgeCounter = 5;
 var locations = {};
-var poiViews = {};
+var poiLocationControllers = {};
 // update/create views
 
 
@@ -29,7 +32,7 @@ function updateDisplay(){
 	if(!busyFlag){
 		busyFlag = true;
 		
-		managePOIViews();
+		managePOILocations();
 		
 		
 		busyFlag = false;
@@ -40,21 +43,41 @@ function updateDisplay(){
 
 
 
-function managePOIViews(){
+function managePOILocations(){
+	for(locationId in poiLocationControllers){
+		poiLocationControllers[locationId].incrementCounter();
+	} 
+	
 	for(locationId in locations){
-		if(!poiViews[locationId] && locationInfo.coords){
+		if(!poiLocationControllers[locationId] && locationInfo.coords){
 			locationObj = locations[locationId];
 			//Ti.API.info(locationObj.geoLocation);
 			//Ti.API.info(locationInfo.coords);
-			var distance = calculateDistance(locationInfo.coords, locationObj.geoLocation);
-			if(distance < poiMaxDistance){
-				Ti.API.info(locationObj.name + ' ' + distance);
-				
-				// create / animate views
+			var distance = geoMath.calculateDistance(locationInfo.coords, locationObj.geoLocation);
+			if(distance < maxPOIDistance){
+				var locationController = Alloy.createController("LocationView");
+				$.canvas.add(locationController.getView());
+				locationController.setLocationData(locationObj);
+				poiLocationControllers[locationId] = locationController;
 			}
 			
+		}else{
+			if(poiLocationControllers[locationId].calculateDistance(locationInfo.coords) < maxPOIDistance){
+				poiLocationControllers[locationId].resetCounter();
+			}
 		}
 	}
+	
+	for(locationId in poiLocationControllers){
+		if(poiLocationControllers[locationId].getCounter() > maxPOIAgeCounter){
+			$.canvas.remove(poiLocationControllers[locationId].getView());
+			poiLocationControllers[locationId] = null;
+			delete poiLocationControllers[locationId];
+		}
+		
+	}
+	
+	
 }
 
 
@@ -74,6 +97,7 @@ function loadPOIs(){
 	        'latitude' : locationInfo.coords.latitude,
 	        'longitude' : locationInfo.coords.longitude,
 	        'types' : 'establishment',
+	        'follow_pagetoken' : 1,
 	    };     
 	   
 	    xhr.onload = function() {
@@ -92,58 +116,7 @@ function loadPOIs(){
 		
 }
 
-// calculation
-//Conversion of Degress to Radians
-function toRadians(deg) {
-	return deg * Math.PI/180;
-}
 
-//Conversion of Radians to Degrees
-function toDegrees(rad) {
-	return ((rad * 180/Math.PI) + 360) % 360;
-}
-
-//Reference for the functions below http://www.movable-type.co.uk/scripts/latlong.html
-function calculateDistance(point1, point2) {
-    var R = 6371; // km
-    
-   var φ1 = toRadians(point1.latitude);
-    var φ2 = toRadians(point2.latitude);
-    
-    var λ1 = toRadians(point1.longitude);
-    var λ2 = toRadians(point2.longitude);
-    
-    var Δφ = toRadians(point2.latitude - point1.latitude);
-    var Δλ = toRadians(point2.longitude - point1.longitude); 
-    
-    var a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-	        Math.cos(φ1) * Math.cos(φ2) *
-	        Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-	
-	var d = R * c * 1000;
-    return d;
-}
-
-
-function calculateBearing(point1, point2){
-	
-	var φ1 = toRadians(point1.latitude);
-    var φ2 = toRadians(point2.latitude);
-    
-    var λ1 = toRadians(point1.longitude);
-    var λ2 = toRadians(point2.longitude);
-    
-    var Δφ = toRadians(point2.latitude - point1.latitude);
-    var Δλ = toRadians(point2.longitude - point1.longitude); 
-	
-	var y = Math.sin(λ2-λ1) * Math.cos(φ2);
-	var x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(λ2-λ1);
-        
-	var bearing = toDegrees(Math.atan2(y, x));
-	
-	return bearing;
-}
 
 
 

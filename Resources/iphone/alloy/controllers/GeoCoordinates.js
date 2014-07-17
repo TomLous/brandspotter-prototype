@@ -2,15 +2,29 @@ function Controller() {
     function updateDisplay() {
         if (!busyFlag) {
             busyFlag = true;
-            managePOIViews();
+            managePOILocations();
             busyFlag = false;
         }
     }
-    function managePOIViews() {
-        for (locationId in locations) if (!poiViews[locationId] && locationInfo.coords) {
+    function managePOILocations() {
+        for (locationId in poiLocationControllers) poiLocationControllers[locationId].incrementCounter();
+        for (locationId in locations) if (!poiLocationControllers[locationId] && locationInfo.coords) {
             locationObj = locations[locationId];
-            var distance = calculateDistance(locationInfo.coords, locationObj.geoLocation);
-            poiMaxDistance > distance && Ti.API.info(locationObj.name + " " + distance);
+            var distance = geoMath.calculateDistance(locationInfo.coords, locationObj.geoLocation);
+            if (poiMaxDistance > distance) {
+                Ti.API.info(locationObj.name + " " + distance);
+                var locationController = Alloy.createController("LocationView");
+                $.canvas.add(locationController.getView());
+                locationController.setLocationData(locationObj);
+                poiLocationControllers[locationId] = locationController;
+                Ti.API.info($.canvas);
+                Ti.API.info(locationController);
+            }
+        } else poiMaxDistance > poiLocationControllers[locationId].calculateDistance(locationInfo.coords) && poiLocationControllers[locationId].resetCounter();
+        for (locationId in poiLocationControllers) if (poiLocationControllers[locationId].getCounter() > maxPOIAgeCounter) {
+            $.canvas.remove(poiLocationControllers[locationId].getView());
+            poiLocationControllers[locationId] = null;
+            delete poiLocationControllers[locationId];
         }
     }
     function loadPOIs() {
@@ -22,7 +36,8 @@ function Controller() {
             var data = {
                 latitude: locationInfo.coords.latitude,
                 longitude: locationInfo.coords.longitude,
-                types: "establishment"
+                types: "establishment",
+                follow_pagetoken: 1
             };
             xhr.onload = function() {
                 Titanium.API.info("Status: " + this.status);
@@ -35,22 +50,6 @@ function Controller() {
             xhr.open("POST", postURL);
             xhr.send(data);
         }
-    }
-    function toRadians(deg) {
-        return deg * Math.PI / 180;
-    }
-    function calculateDistance(point1, point2) {
-        var R = 6371;
-        var φ1 = toRadians(point1.latitude);
-        var φ2 = toRadians(point2.latitude);
-        toRadians(point1.longitude);
-        toRadians(point2.longitude);
-        var Δφ = toRadians(point2.latitude - point1.latitude);
-        var Δλ = toRadians(point2.longitude - point1.longitude);
-        var a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        var d = 1e3 * R * c;
-        return d;
     }
     function updateLocation() {
         Titanium.Geolocation.getCurrentPosition(function(e) {
@@ -324,9 +323,18 @@ function Controller() {
         id: "z"
     });
     $.__views.coordinates.add($.__views.z);
+    $.__views.canvas = Ti.UI.createView({
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        id: "canvas"
+    });
+    $.__views.GeoCoordinates.add($.__views.canvas);
     exports.destroy = function() {};
     _.extend($, $.__views);
     arguments[0] || {};
+    var geoMath = require("geoMath");
     Titanium.Geolocation.distanceFilter = 10;
     Titanium.Geolocation.headingFilter = .2;
     var minInterval = 60;
@@ -341,7 +349,7 @@ function Controller() {
     var poiMaxDistance = 500;
     var updateInterval = 1e3;
     var locations = {};
-    var poiViews = {};
+    var poiLocationControllers = {};
     Titanium.Geolocation.addEventListener("location", function() {
         updateLocation();
     });

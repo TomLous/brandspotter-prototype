@@ -1,0 +1,17 @@
+
+".container" : {
+	width: "200dp",
+	height: "60dp",
+  	backgroundColor: "#0099FF",
+  	borderColor: "#0033CC",
+  	borderWidth: "1dp"
+},
+".labels":{
+	width: "190dp",
+	left: "5dp",
+	height: "14dp",
+	color: "#FFFFFF",
+	font:{
+		fontSize: "13dp"
+	}	
+}

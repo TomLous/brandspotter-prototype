@@ -26,5 +26,8 @@
 			<Label  id="z" class="values z"></Label>
 			
 		</View>
+		<View id="canvas">
+			
+		</View>
 	</View>
 </Alloy>
