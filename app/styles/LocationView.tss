@@ -15,3 +15,13 @@
 		fontSize: "13dp"
 	}	
 }
+"#name":{
+	top: '5dp'
+}
+"#distance":{
+	top: '20dp',
+	color: "#CCCCCC",
+	font:{
+		fontSize: "11dp"
+	}
+}

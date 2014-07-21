@@ -1,16 +1,19 @@
 var args = arguments[0] || {};
 
 var geoMath = require('geoMath');
+var CompassSmoother = require('CompassSmoother');
 
 Titanium.Geolocation.distanceFilter = 10;
-Titanium.Geolocation.headingFilter = 0.2;
+Titanium.Geolocation.headingFilter = 0.5;
 
+var compassSmoother = new CompassSmoother(0.22);
 
 // globals
 var minInterval =  60; //sec
 var lastTime = -1;
 
-var busyFlag = false;
+var busyFlagPosition = false;
+var busyFlagOrientation = false;
 
 
 var locationInfo = {
@@ -20,34 +23,119 @@ var locationInfo = {
 	accelerometer: {}
 };
 
-var maxPOIDistance = 500; // meters
-var updateInterval = 1000;
+var maxPOIDistance = 900; // meters
+var updateIntervalOrientation = 100;
+var updateIntervalPosition = 3000;
 var maxPOIAgeCounter = 5;
 var locations = {};
 var poiLocationControllers = {};
+
+var minPOIOpacity = 0.5;
+var minPOIScale = 0.4;
+
+var viewingAngleDeg = 35; 
+var viewingAngle = geoMath.toRadians(viewingAngleDeg); 
+
+var screen = {
+		center : {
+			x: Titanium.Platform.displayCaps.platformWidth/2, 
+			y: Titanium.Platform.displayCaps.platformHeight/2
+		},
+		width: Titanium.Platform.displayCaps.platformWidth,
+		height: Titanium.Platform.displayCaps.platformHeight
+};
+		
 // update/create views
 
 
-function updateDisplay(){
-	if(!busyFlag){
-		busyFlag = true;
+function updateDisplayPosition(){
+	if(!busyFlagPosition){
+		busyFlagPosition = true;
 		
 		managePOILocations();
 		
+		displayPOILocations();
+			
 		
-		busyFlag = false;
+		busyFlagPosition = false;
+	}	
+}
+
+function updateDisplayOrientation(){
+	if(!busyFlagOrientation){
+		busyFlagOrientation = true;
+		
+		
+		positionPOILocations();
+		
+		
+		busyFlagOrientation = false;
 	}
 	
 }
 
+function positionPOILocations(){
+	// var currentBearing = locationInfo.heading.magneticHeading;
+	var poiLocationControllersOnScreen = {};
+	
+	for(locationId in poiLocationControllers){
+		var poiBearing = poiLocationControllers[locationId].calculateBearing(locationInfo.coords);
+		var relativeAngleDegrees = (poiBearing - locationInfo.heading.smoothMagneticHeading  + 360) % 360;
+		var relativeAngle  = geoMath.toRadians(relativeAngleDegrees);
+		
+		// Ti.API.info(locationId + ' - ' +poiBearing+ ' - ' + relativeAngleDegrees);
+		
+		if(relativeAngleDegrees < 90 || relativeAngleDegrees > 270){
+			
+			var delta = geoMath.calculateAngularDeltaFactor(relativeAngle,viewingAngle);
+			var poiX = (screen.width * delta) + screen.center.x;
+			
+			poiLocationControllers[locationId].setPosition(poiX, screen.center.y);	
+			
+		}else{
+			poiLocationControllers[locationId].hideView();
+		}
+		
+		
+				
+	
+	}
+}
 
+
+
+function displayPOILocations(){
+	for(locationId in poiLocationControllers){
+		
+		var distance = poiLocationControllers[locationId].getDistance();
+		var opacity = (((maxPOIDistance - distance) / ( maxPOIDistance * (1 / (1-minPOIOpacity)))) + minPOIOpacity).toFixed(2);
+		var scale =  (((maxPOIDistance - distance) / ( maxPOIDistance * (1 / (1-minPOIScale)))) + minPOIScale).toFixed(2);
+		
+		
+		poiLocationControllers[locationId].setAppearance(opacity, scale);
+	}
+}
 
 
 function managePOILocations(){
+	// recalculate distances & reset/increment counters for POI's. Remove old ones
 	for(locationId in poiLocationControllers){
-		poiLocationControllers[locationId].incrementCounter();
+		poiLocationControllers[locationId].calculateDistanceAndBearing(locationInfo.coords);
+		
+		if(poiLocationControllers[locationId].getDistance() < maxPOIDistance){
+			poiLocationControllers[locationId].resetCounter();
+		}else{
+			poiLocationControllers[locationId].incrementCounter();
+			if(poiLocationControllers[locationId].getCounter() > maxPOIAgeCounter){
+				poiLocationControllers[locationId].hideView();
+				$.canvas.remove(poiLocationControllers[locationId].getView());
+				poiLocationControllers[locationId] = null;
+				delete poiLocationControllers[locationId];
+			}
+		}
 	} 
 	
+	// add locations within range
 	for(locationId in locations){
 		if(!poiLocationControllers[locationId] && locationInfo.coords){
 			locationObj = locations[locationId];
@@ -57,24 +145,16 @@ function managePOILocations(){
 			if(distance < maxPOIDistance){
 				var locationController = Alloy.createController("LocationView");
 				$.canvas.add(locationController.getView());
+				
+				
 				locationController.setLocationData(locationObj);
+				locationController.calculateDistanceAndBearing(locationInfo.coords);
+				
+				Ti.API.info(locationObj.name + ' ' + locationInfo.heading.smoothMagneticHeading + ' ' + locationController.getBearing());
+				
 				poiLocationControllers[locationId] = locationController;
 			}
-			
-		}else{
-			if(poiLocationControllers[locationId].calculateDistance(locationInfo.coords) < maxPOIDistance){
-				poiLocationControllers[locationId].resetCounter();
-			}
 		}
-	}
-	
-	for(locationId in poiLocationControllers){
-		if(poiLocationControllers[locationId].getCounter() > maxPOIAgeCounter){
-			$.canvas.remove(poiLocationControllers[locationId].getView());
-			poiLocationControllers[locationId] = null;
-			delete poiLocationControllers[locationId];
-		}
-		
 	}
 	
 	
@@ -120,12 +200,6 @@ function loadPOIs(){
 
 
 
-//compute the X displacement from the center of the screen given
-//the relative horizontal angle of a POI
-function computeXDelta(relAngle) {
-    var res = Math.sin(relAngle) / Math.sin(viewAngleX /2);
-    return res;
-}
 
 
 // Location & Orientation
@@ -180,8 +254,9 @@ function updateHeading(){
         // Ti.API.info(e.heading);	
         
         locationInfo.heading = e.heading;
+        locationInfo.heading.smoothMagneticHeading = compassSmoother.smooth(e.heading.magneticHeading);
 		
-		$.heading.text = e.heading.trueHeading;		
+		$.heading.text = e.heading.smoothMagneticHeading;		
     });
 }
 
@@ -199,15 +274,17 @@ Titanium.Geolocation.addEventListener('location', function(e) {
 
 Titanium.Geolocation.addEventListener('heading', function(e) {
 	updateHeading();
+	updateDisplayOrientation();	
 });
 
 Titanium.Gesture.addEventListener("orientationchange", function(e){
 	updateOrientation(e.orientation);
+	// updateDisplayOrientation();
 });
 
-Titanium.Accelerometer.addEventListener('update', function(e){
-	updateAccelerometer(e);
-});
+// Titanium.Accelerometer.addEventListener('update', function(e){
+	// updateAccelerometer(e);
+// });
 
 
 
@@ -215,4 +292,5 @@ Titanium.Accelerometer.addEventListener('update', function(e){
 updateLocation();
 updateHeading();
 updateOrientation();
-setInterval(updateDisplay, updateInterval);
+setInterval(updateDisplayPosition, updateIntervalPosition);
+// setInterval(updateDisplayOrientation, updateDisplayOrientation);

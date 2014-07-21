@@ -53,3 +53,10 @@ function calculateBearing(point1, point2){
 	return bearing;
 }
 exports.calculateBearing = calculateBearing;
+
+
+function calculateAngularDeltaFactor(angle1, angle2) {
+    var res = Math.sin(angle1) / Math.sin(angle2);
+    return res;
+}
+exports.calculateAngularDeltaFactor = calculateAngularDeltaFactor;

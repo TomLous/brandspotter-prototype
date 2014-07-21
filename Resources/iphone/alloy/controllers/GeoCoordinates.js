@@ -1,30 +1,63 @@
 function Controller() {
-    function updateDisplay() {
-        if (!busyFlag) {
-            busyFlag = true;
+    function updateDisplayPosition() {
+        if (!busyFlagPosition) {
+            busyFlagPosition = true;
             managePOILocations();
-            busyFlag = false;
+            displayPOILocations();
+            busyFlagPosition = false;
+        }
+    }
+    function updateDisplayOrientation() {
+        if (!busyFlagOrientation) {
+            busyFlagOrientation = true;
+            positionPOILocations();
+            busyFlagOrientation = false;
+        }
+    }
+    function positionPOILocations() {
+        for (locationId in poiLocationControllers) {
+            var poiBearing = poiLocationControllers[locationId].calculateBearing(locationInfo.coords);
+            var relativeAngleDegrees = (poiBearing - locationInfo.heading.smoothMagneticHeading + 360) % 360;
+            var relativeAngle = geoMath.toRadians(relativeAngleDegrees);
+            if (90 > relativeAngleDegrees || relativeAngleDegrees > 270) {
+                var delta = geoMath.calculateAngularDeltaFactor(relativeAngle, viewingAngle);
+                var poiX = screen.width * delta + screen.center.x;
+                poiLocationControllers[locationId].setPosition(poiX, screen.center.y);
+            } else poiLocationControllers[locationId].hideView();
+        }
+    }
+    function displayPOILocations() {
+        for (locationId in poiLocationControllers) {
+            var distance = poiLocationControllers[locationId].getDistance();
+            var opacity = ((maxPOIDistance - distance) / (maxPOIDistance * (1 / (1 - minPOIOpacity))) + minPOIOpacity).toFixed(2);
+            var scale = ((maxPOIDistance - distance) / (maxPOIDistance * (1 / (1 - minPOIScale))) + minPOIScale).toFixed(2);
+            poiLocationControllers[locationId].setAppearance(opacity, scale);
         }
     }
     function managePOILocations() {
-        for (locationId in poiLocationControllers) poiLocationControllers[locationId].incrementCounter();
+        for (locationId in poiLocationControllers) {
+            poiLocationControllers[locationId].calculateDistanceAndBearing(locationInfo.coords);
+            if (maxPOIDistance > poiLocationControllers[locationId].getDistance()) poiLocationControllers[locationId].resetCounter(); else {
+                poiLocationControllers[locationId].incrementCounter();
+                if (poiLocationControllers[locationId].getCounter() > maxPOIAgeCounter) {
+                    poiLocationControllers[locationId].hideView();
+                    $.canvas.remove(poiLocationControllers[locationId].getView());
+                    poiLocationControllers[locationId] = null;
+                    delete poiLocationControllers[locationId];
+                }
+            }
+        }
         for (locationId in locations) if (!poiLocationControllers[locationId] && locationInfo.coords) {
             locationObj = locations[locationId];
             var distance = geoMath.calculateDistance(locationInfo.coords, locationObj.geoLocation);
-            if (poiMaxDistance > distance) {
-                Ti.API.info(locationObj.name + " " + distance);
+            if (maxPOIDistance > distance) {
                 var locationController = Alloy.createController("LocationView");
                 $.canvas.add(locationController.getView());
                 locationController.setLocationData(locationObj);
+                locationController.calculateDistanceAndBearing(locationInfo.coords);
+                Ti.API.info(locationObj.name + " " + locationInfo.heading.smoothMagneticHeading + " " + locationController.getBearing());
                 poiLocationControllers[locationId] = locationController;
-                Ti.API.info($.canvas);
-                Ti.API.info(locationController);
             }
-        } else poiMaxDistance > poiLocationControllers[locationId].calculateDistance(locationInfo.coords) && poiLocationControllers[locationId].resetCounter();
-        for (locationId in poiLocationControllers) if (poiLocationControllers[locationId].getCounter() > maxPOIAgeCounter) {
-            $.canvas.remove(poiLocationControllers[locationId].getView());
-            poiLocationControllers[locationId] = null;
-            delete poiLocationControllers[locationId];
         }
     }
     function loadPOIs() {
@@ -93,14 +126,9 @@ function Controller() {
     function updateHeading() {
         Ti.Geolocation.getCurrentHeading(function(e) {
             locationInfo.heading = e.heading;
-            $.heading.text = e.heading.trueHeading;
+            locationInfo.heading.smoothMagneticHeading = compassSmoother.smooth(e.heading.magneticHeading);
+            $.heading.text = e.heading.smoothMagneticHeading;
         });
-    }
-    function updateAccelerometer(e) {
-        locationInfo.accelerometer = e;
-        $.x.text = e.x;
-        $.y.text = e.y;
-        $.z.text = e.z;
     }
     require("alloy/controllers/BaseController").apply(this, Array.prototype.slice.call(arguments));
     this.__controllerPath = "GeoCoordinates";
@@ -328,6 +356,8 @@ function Controller() {
         left: 0,
         width: "100%",
         height: "100%",
+        layout: "absolute",
+        backgroundColor: "transparent",
         id: "canvas"
     });
     $.__views.GeoCoordinates.add($.__views.canvas);
@@ -335,37 +365,51 @@ function Controller() {
     _.extend($, $.__views);
     arguments[0] || {};
     var geoMath = require("geoMath");
+    var CompassSmoother = require("CompassSmoother");
     Titanium.Geolocation.distanceFilter = 10;
-    Titanium.Geolocation.headingFilter = .2;
+    Titanium.Geolocation.headingFilter = .5;
+    var compassSmoother = new CompassSmoother(.22);
     var minInterval = 60;
     var lastTime = -1;
-    var busyFlag = false;
+    var busyFlagPosition = false;
+    var busyFlagOrientation = false;
     var locationInfo = {
         coords: {},
         heading: {},
         orientation: 0,
         accelerometer: {}
     };
-    var poiMaxDistance = 500;
-    var updateInterval = 1e3;
+    var maxPOIDistance = 900;
+    var updateIntervalPosition = 3e3;
+    var maxPOIAgeCounter = 5;
     var locations = {};
     var poiLocationControllers = {};
+    var minPOIOpacity = .5;
+    var minPOIScale = .4;
+    var viewingAngleDeg = 35;
+    var viewingAngle = geoMath.toRadians(viewingAngleDeg);
+    var screen = {
+        center: {
+            x: Titanium.Platform.displayCaps.platformWidth / 2,
+            y: Titanium.Platform.displayCaps.platformHeight / 2
+        },
+        width: Titanium.Platform.displayCaps.platformWidth,
+        height: Titanium.Platform.displayCaps.platformHeight
+    };
     Titanium.Geolocation.addEventListener("location", function() {
         updateLocation();
     });
     Titanium.Geolocation.addEventListener("heading", function() {
         updateHeading();
+        updateDisplayOrientation();
     });
     Titanium.Gesture.addEventListener("orientationchange", function(e) {
         updateOrientation(e.orientation);
     });
-    Titanium.Accelerometer.addEventListener("update", function(e) {
-        updateAccelerometer(e);
-    });
     updateLocation();
     updateHeading();
     updateOrientation();
-    setInterval(updateDisplay, updateInterval);
+    setInterval(updateDisplayPosition, updateIntervalPosition);
     _.extend($, exports);
 }
 

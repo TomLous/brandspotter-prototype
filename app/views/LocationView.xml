@@ -1,5 +1,6 @@
 <Alloy>
-	<View class="container">
+	<View class="container" id="marquee" visible="false">
 		<Label id="name" class="labels"></Label>
+		<Label id="distance" class="labels"></Label>
 	</View>
 </Alloy>
